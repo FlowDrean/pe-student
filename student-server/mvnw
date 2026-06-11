@@ -1,0 +1,35 @@
+#!/bin/sh
+# Maven Wrapper startup script
+
+# Resolve links
+PRG="$0"
+while [ -h "$PRG" ]; do
+  ls=$(ls -ld "$PRG")
+  link=$(expr "$ls" : '.*-> \(.*\)$')
+  if expr "$link" : '/.*' > /dev/null; then
+    PRG="$link"
+  else
+    PRG=$(dirname "$PRG")/"$link"
+  fi
+done
+
+# Set project directory
+SAVED="$(pwd)"
+cd "$(dirname "$PRG")/" >/dev/null
+APP_HOME="$(pwd -P)"
+
+# Locate Java
+if [ -n "$JAVA_HOME" ]; then
+  JAVA_EXEC="$JAVA_HOME/bin/java"
+else
+  JAVA_EXEC="java"
+fi
+
+# Maven wrapper jar
+WRAPPER_JAR="$APP_HOME/.mvn/wrapper/maven-wrapper.jar"
+
+# Execute the wrapper
+exec "$JAVA_EXEC" \
+  -jar "$WRAPPER_JAR" \
+  -Dmaven.multiModuleProjectDirectory="$APP_HOME" \
+  "$@"
