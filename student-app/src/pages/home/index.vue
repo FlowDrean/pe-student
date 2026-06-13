@@ -82,6 +82,7 @@
             :data-index="index"
             @like="handleLike(post.id)"
             @favorite="handleFavorite(post.id)"
+            @comment="goDetail(post.id)"
             @preview="handlePreview"
             @click="goDetail(post.id)"
           />
