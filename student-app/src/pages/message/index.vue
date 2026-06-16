@@ -24,18 +24,24 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useUserStore } from '@stores/user'
 import { useMessageStore } from '@stores/message'
 import { getConversations } from '@api'
 import { getNotificationUnreadCount } from '@api/notification'
+import { useWebSocket } from '@composables/useWebSocket'
 import MessagePreview from '@components/message/MessagePreview.vue'
 import Loading from '@components/common/Loading.vue'
 import EmptyState from '@components/common/EmptyState.vue'
 
 const router = useRouter()
+const userStore = useUserStore()
 const messageStore = useMessageStore()
+const myId = userStore.userId || 0
 const notiUnread = computed(() => messageStore.notiUnreadCount)
 const loading = ref(true)
 const conversations = ref([])
+
+const { connected, connect, subscribe } = useWebSocket()
 
 async function fetchConversations() {
   loading.value = true
@@ -53,7 +59,54 @@ async function fetchNotiUnread() {
   try { const count = await getNotificationUnreadCount(); messageStore.notiUnreadCount = count || 0 } catch { /* ignore */ }
 }
 
-onMounted(() => { fetchConversations(); fetchNotiUnread() })
+/** 处理 WebSocket 收到的消息 —— 实时更新会话列表 */
+function onMessageReceived(msg) {
+  // 过滤掉自己发的消息（自己发的不会出现在自己列表里）
+  if (msg.senderId == myId) return
+
+  const senderId = msg.senderId
+  const existing = conversations.value.find((c) => c.userId == senderId)
+
+  if (existing) {
+    // 更新已有会话：刷新最后一条消息 & 时间 & 未读数
+    existing.lastMessage = msg.content
+    existing.lastTime = msg.createdAt || new Date().toISOString()
+    existing.unread = (existing.unread || 0) + 1
+    // 置顶
+    conversations.value = [
+      existing,
+      ...conversations.value.filter((c) => c.userId != senderId),
+    ]
+  } else {
+    // 新会话：插入到列表顶部
+    conversations.value.unshift({
+      userId: senderId,
+      nickname: msg.senderName || '用户' + senderId,
+      lastMessage: msg.content,
+      lastTime: msg.createdAt || new Date().toISOString(),
+      unread: 1,
+      avatar: null,
+    })
+  }
+
+  // 同步到 store
+  messageStore.setConversations(conversations.value)
+}
+
+async function initPage() {
+  await fetchConversations()
+  fetchNotiUnread()
+
+  // 建立 WebSocket 并订阅消息
+  if (!connected.value) {
+    try { await connect() } catch { /* 连接失败不影响列表展示 */ }
+  }
+  if (connected.value) {
+    subscribe('/user/queue/message', onMessageReceived)
+  }
+}
+
+onMounted(() => { initPage() })
 </script>
 
 <style scoped>

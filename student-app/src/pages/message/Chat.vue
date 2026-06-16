@@ -44,12 +44,16 @@ async function initChat() {
   await fetchMessages()
   loading.value = false
 
-  // 2. 建立 WebSocket 连接
+  // 2. 滚动到底部（等 DOM 渲染完）
+  await nextTick()
+  scrollToBottom()
+
+  // 3. 建立 WebSocket 连接
   if (!connected.value) {
     await connect()
   }
 
-  // 3. 订阅新消息推送
+  // 4. 订阅新消息推送
   subscribe('/user/queue/message', (msg) => {
     // 只处理当前聊天对象的消息
     if (msg.senderId == peerId || msg.receiverId == peerId) {
