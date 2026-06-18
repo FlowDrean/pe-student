@@ -27,25 +27,62 @@
 | Tailwind CSS | 3.4+ | 原子化CSS |
 | Vant | 4.9+ | 移动端UI组件库 |
 
+### 后端技术栈
+
+| 技术 | 版本 | 用途 |
+|------|------|------|
+| Spring Boot | 3.2+ | 后端框架 |
+| Spring Security | 6.2+ | 安全认证 |
+| Spring WebSocket | 6.1+ | 实时通信 |
+| MyBatis Plus | 3.5+ | ORM框架 |
+| MySQL | 8.0+ | 关系型数据库 |
+| Redis | 7.0+ | 缓存/会话 |
+| JWT | 0.12+ | Token认证 |
+| Aliyun OSS | 3.17+ | 文件存储 |
+| Lombok | 1.18+ | 代码简化 |
+| Hutool | 5.8+ | 工具库 |
+
 ### 项目结构
 
 ```
 PE-Student/
-├── student-app/          # 前端项目
+├── student-app/              # 前端项目 (Vue 3 + Vite)
 │   ├── src/
-│   │   ├── api/          # API 接口
-│   │   ├── assets/       # 静态资源
-│   │   ├── components/   # 公共组件
-│   │   ├── composables/  # 组合式函数
-│   │   ├── layouts/      # 布局组件
-│   │   ├── pages/        # 页面组件
-│   │   ├── router/       # 路由配置
-│   │   ├── stores/       # Pinia 状态管理
-│   │   └── utils/        # 工具函数
+│   │   ├── api/              # API 接口封装
+│   │   ├── assets/           # 静态资源
+│   │   ├── components/       # 公共组件
+│   │   ├── composables/      # 组合式函数
+│   │   ├── layouts/          # 布局组件
+│   │   ├── pages/            # 页面组件
+│   │   ├── router/           # 路由配置
+│   │   ├── stores/           # Pinia 状态管理
+│   │   └── utils/            # 工具函数
 │   ├── index.html
 │   ├── package.json
 │   └── vite.config.js
-├── pe-student/           # 后端项目
+│
+├── student-server/           # 后端项目 (Spring Boot)
+│   ├── src/main/java/com/student/
+│   │   ├── config/           # 配置类 (Security/WebSocket/CORS/Redis等)
+│   │   ├── controller/       # 控制器层 (REST API)
+│   │   ├── service/          # 服务层 (业务逻辑)
+│   │   ├── mapper/           # 数据访问层 (MyBatis Plus)
+│   │   ├── entity/           # 实体类 / DTO
+│   │   ├── vo/               # 视图对象 (返回封装)
+│   │   ├── enums/            # 枚举类
+│   │   ├── exception/        # 异常处理
+│   │   ├── utils/            # 工具类 (JWT/Security)
+│   │   ├── interceptor/      # 拦截器 (限流)
+│   │   └── StudentApplication.java
+│   ├── src/main/resources/
+│   │   ├── application.yml   # 主配置文件
+│   │   ├── application-dev.yml
+│   │   ├── mapper/           # XML 映射文件
+│   │   └── static/           # 前端静态资源
+│   └── pom.xml
+│
+├── pe-student/               # 预留模块
+├── LICENSE
 └── README.md
 ```
 
@@ -55,31 +92,90 @@ PE-Student/
 
 - Node.js 18+
 - npm 9+ 或 pnpm 8+
+- JDK 17+
+- Maven 3.9+
+- MySQL 8.0+
+- Redis 7.0+ (可选)
 
-### 安装依赖
+---
+
+### 前端启动
+
+#### 安装依赖
 
 ```bash
 cd student-app
 npm install
 ```
 
-### 开发模式
+#### 开发模式
 
 ```bash
 npm run dev
 ```
 
-### 生产构建
+#### 生产构建
 
 ```bash
 npm run build
 ```
 
-### 预览生产构建
+#### 预览生产构建
 
 ```bash
 npm run preview
 ```
+
+---
+
+### 后端启动
+
+#### 1. 创建数据库
+
+```sql
+CREATE DATABASE student_platform CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+```
+
+#### 2. 配置数据库
+
+编辑 `student-server/src/main/resources/application.yml`：
+
+```yaml
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:3306/student_platform?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai
+    username: your_username
+    password: your_password
+```
+
+#### 3. 编译运行
+
+```bash
+cd student-server
+mvn clean package
+mvn spring-boot:run
+```
+
+或使用 IDEA 直接运行 `StudentApplication.java`。
+
+后端服务默认运行在 `http://localhost:8080`。
+
+---
+
+### API 接口
+
+| 模块 | 基础路径 | 说明 |
+|------|---------|------|
+| 认证 | `/api/auth/**` | 登录/注册/刷新Token |
+| 用户 | `/api/user/**` | 用户信息/关注 |
+| 帖子 | `/api/post/**` | 帖子发布/点赞/收藏 |
+| 评论 | `/api/comment/**` | 评论发布/删除 |
+| 交易 | `/api/trade/**` | 二手商品发布/收藏 |
+| 消息 | `/api/message/**` | 私信/会话列表 |
+| 通知 | `/api/notification/**` | 系统通知 |
+| 上传 | `/api/upload/**` | 图片上传 |
+
+WebSocket 端点：`/ws`，使用 STOMP 协议。
 
 ## 功能模块
 
