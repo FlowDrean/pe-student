@@ -21,6 +21,7 @@ public class User {
     private String bio;
     private Integer gender;
     private Integer status;
+    private String role;
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createdAt;
     @TableField(fill = FieldFill.INSERT_UPDATE)

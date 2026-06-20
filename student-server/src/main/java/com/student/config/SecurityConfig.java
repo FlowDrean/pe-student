@@ -34,6 +34,8 @@ public class SecurityConfig {
                 ).permitAll()
                 // 认证接口
                 .requestMatchers("/api/v1/auth/**").permitAll()
+                // 管理员登录接口
+                .requestMatchers("/api/v1/admin/auth/login").permitAll()
                 // 公开的 GET 接口
                 .requestMatchers(HttpMethod.GET,
                     "/api/v1/posts/**",
@@ -47,6 +49,8 @@ public class SecurityConfig {
                 .requestMatchers("/uploads/**").permitAll()
                 // WebSocket
                 .requestMatchers("/ws/**").permitAll()
+                // 管理后台接口需要 ADMIN 角色
+                .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                 // 其他接口需要认证
                 .anyRequest().authenticated()
             )

@@ -62,7 +62,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         save(user);
 
         // 生成 Token
-        String token = jwtUtil.generateToken(user.getId(), user.getUsername());
+        String role = user.getRole() != null ? user.getRole() : "user";
+        String token = jwtUtil.generateToken(user.getId(), user.getUsername(), role);
         String refreshToken = jwtUtil.generateRefreshToken(user.getId());
 
         Map<String, String> result = new HashMap<>();
@@ -90,7 +91,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             throw new BusinessException(ErrorCode.PASSWORD_ERROR);
         }
 
-        String token = jwtUtil.generateToken(user.getId(), user.getUsername());
+        String role = user.getRole() != null ? user.getRole() : "user";
+        String token = jwtUtil.generateToken(user.getId(), user.getUsername(), role);
         String refreshToken = jwtUtil.generateRefreshToken(user.getId());
 
         Map<String, String> result = new HashMap<>();
@@ -111,7 +113,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             throw new BusinessException(ErrorCode.USER_NOT_FOUND);
         }
 
-        String newToken = jwtUtil.generateToken(user.getId(), user.getUsername());
+        String role = user.getRole() != null ? user.getRole() : "user";
+        String newToken = jwtUtil.generateToken(user.getId(), user.getUsername(), role);
         String newRefreshToken = jwtUtil.generateRefreshToken(user.getId());
 
         Map<String, String> result = new HashMap<>();

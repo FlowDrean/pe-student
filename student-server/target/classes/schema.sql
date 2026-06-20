@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS `user` (
     `bio` VARCHAR(200) COMMENT '个人简介',
     `gender` TINYINT DEFAULT 0 COMMENT '性别: 0-未知 1-男 2-女',
     `status` TINYINT DEFAULT 1 COMMENT '状态: 0-禁用 1-正常',
+    `role` VARCHAR(20) DEFAULT 'user' COMMENT '角色: user-普通用户 admin-管理员',
     `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
     `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     UNIQUE KEY `uk_username` (`username`),
@@ -137,3 +138,8 @@ CREATE TABLE IF NOT EXISTS `favorite` (
     `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
     UNIQUE KEY `uk_user_target` (`user_id`, `target_id`, `target_type`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='收藏表';
+
+-- ============================================
+-- 兼容已有数据库：如果 user 表已存在但没有 role 列，执行此语句
+-- ALTER TABLE `user` ADD COLUMN `role` VARCHAR(20) DEFAULT 'user' COMMENT '角色: user-普通用户 admin-管理员';
+-- 管理员账号通过 Spring Boot DataInitializer 在应用启动时自动创建
