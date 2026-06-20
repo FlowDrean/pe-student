@@ -106,7 +106,7 @@ PE-Student/
 │       ├── vite.config.js
 │       └── tailwind.config.js
 │
-├── pe-student/               # 预留模块
+│
 ├── LICENSE
 └── README.md
 ```
