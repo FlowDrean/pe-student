@@ -66,10 +66,12 @@ function onMessageReceived(msg) {
 
   const senderId = msg.senderId
   const existing = conversations.value.find((c) => c.userId == senderId)
+  // 图片消息在会话列表中显示 [图片]
+  const displayContent = msg.type === 2 ? '[图片]' : msg.content
 
   if (existing) {
     // 更新已有会话：刷新最后一条消息 & 时间 & 未读数
-    existing.lastMessage = msg.content
+    existing.lastMessage = displayContent
     existing.lastTime = msg.createdAt || new Date().toISOString()
     existing.unread = (existing.unread || 0) + 1
     // 置顶
@@ -82,7 +84,7 @@ function onMessageReceived(msg) {
     conversations.value.unshift({
       userId: senderId,
       nickname: msg.senderName || '用户' + senderId,
-      lastMessage: msg.content,
+      lastMessage: displayContent,
       lastTime: msg.createdAt || new Date().toISOString(),
       unread: 1,
       avatar: null,

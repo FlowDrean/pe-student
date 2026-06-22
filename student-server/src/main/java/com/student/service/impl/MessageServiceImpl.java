@@ -48,7 +48,8 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
             if (!convMap.containsKey(peerId)) {
                 MessageVO vo = new MessageVO();
                 vo.setUserId(peerId);
-                vo.setLastMessage(msg.getContent());
+                // 图片消息在会话列表中显示 [图片]
+                vo.setLastMessage(msg.getType() != null && msg.getType() == 2 ? "[图片]" : msg.getContent());
                 vo.setLastTime(msg.getCreatedAt());
 
                 User user = userMapper.selectById(peerId);
@@ -95,11 +96,26 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
     @Override
     @Transactional
     public MessageVO sendMessage(Long senderId, Long receiverId, MessageDTO dto) {
+        Integer type = dto.getType() != null ? dto.getType() : 1;
+
+        // 图片消息校验
+        if (type == 2) {
+            if (dto.getImageUrl() == null || dto.getImageUrl().isBlank()) {
+                throw new BusinessException("图片消息必须上传图片");
+            }
+        } else {
+            // 文字消息校验
+            if (dto.getContent() == null || dto.getContent().isBlank()) {
+                throw new BusinessException("消息内容不能为空");
+            }
+        }
+
         Message msg = new Message();
         msg.setSenderId(senderId);
         msg.setReceiverId(receiverId);
-        msg.setContent(dto.getContent());
-        msg.setType(dto.getType() != null ? dto.getType() : 1);
+        msg.setContent(type == 2 ? "[图片]" : dto.getContent());
+        msg.setType(type);
+        msg.setImageUrl(dto.getImageUrl());
         msg.setIsRead(0);
         save(msg);
 

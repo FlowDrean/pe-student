@@ -107,6 +107,7 @@ CREATE TABLE IF NOT EXISTS `message` (
     `receiver_id` BIGINT NOT NULL COMMENT '接收者ID',
     `content` TEXT NOT NULL COMMENT '消息内容',
     `type` TINYINT DEFAULT 1 COMMENT '类型: 1-文字 2-图片 3-系统消息',
+    `image_url` VARCHAR(500) COMMENT '图片URL（type=2时使用）',
     `is_read` TINYINT DEFAULT 0 COMMENT '是否已读',
     `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
     INDEX `idx_sender` (`sender_id`),

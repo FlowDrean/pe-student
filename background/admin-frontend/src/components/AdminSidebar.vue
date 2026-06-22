@@ -44,6 +44,7 @@ const menuItems = [
   { path: '/posts', label: '帖子管理', icon: 'Document' },
   { path: '/trades', label: '商品管理', icon: 'ShoppingBag' },
   { path: '/comments', label: '评论管理', icon: 'ChatLineSquare' },
+  { path: '/messages', label: '消息管理', icon: 'Message' },
 ]
 
 function isActive(path) {

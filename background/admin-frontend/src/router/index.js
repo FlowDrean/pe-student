@@ -43,6 +43,12 @@ const routes = [
         component: () => import('@/pages/comment/CommentList.vue'),
         meta: { title: '评论管理', icon: 'ChatLineSquare' },
       },
+      {
+        path: 'messages',
+        name: 'Messages',
+        component: () => import('@/pages/message/MessageList.vue'),
+        meta: { title: '消息管理', icon: 'Message' },
+      },
     ],
   },
 ]

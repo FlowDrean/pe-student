@@ -10,6 +10,7 @@ public class MessageVO {
     private Long receiverId;
     private String content;
     private Integer type;
+    private String imageUrl;
     private Integer isRead;
     private LocalDateTime createdAt;
 

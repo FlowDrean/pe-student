@@ -34,7 +34,8 @@ export const useMessageStore = defineStore('message', () => {
       (c) => c.userId === msg.senderId || c.userId === msg.receiverId
     )
     if (conv) {
-      conv.lastMessage = msg.content
+      // 图片消息在会话列表中显示 [图片]
+      conv.lastMessage = msg.type === 2 ? '[图片]' : msg.content
       conv.lastTime = msg.createdAt
     }
   }

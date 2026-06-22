@@ -13,6 +13,7 @@ public class Message {
     private Long receiverId;
     private String content;
     private Integer type;
+    private String imageUrl;
     private Integer isRead;
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createdAt;
