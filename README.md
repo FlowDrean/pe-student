@@ -1,6 +1,6 @@
 # 校园互助平台 (PE-Student)
 
-一个面向高校学生的移动端互助平台，旨在促进校园内的信息共享、资源互助与社交互动。平台以"互助、共享、连接"为核心理念，打造温暖、年轻、有活力的校园社区。
+一个面向高校学生的多端互助平台，旨在促进校园内的信息共享、资源互助与社交互动。平台以"互助、共享、连接"为核心理念，打造温暖、年轻、有活力的校园社区。
 
 ## 项目简介
 
@@ -9,9 +9,18 @@
 - **帖子发布**：文字/图片发帖、话题标签、分类选择
 - **二手交易**：商品发布、价格展示、交易状态、分类筛选
 - **互动系统**：点赞、评论、收藏
-- **私信系统**：一对一聊天、图片发送、表情包、消息列表
+- **私信系统**：一对一聊天、图片发送、表情包、消息列表（WebSocket 实时推送）
 - **用户中心**：个人资料、我的帖子、我的交易、收藏管理
 - **后台管理**：仪表盘统计、用户管理、内容审核、数据看板
+
+### 多端覆盖
+
+| 端 | 目录 | 技术栈 | 运行环境 |
+|---|------|--------|---------|
+| 移动端 Web | `student-app/` | Vue 3 + Vite + Vant | 浏览器 / WebView |
+| 微信小程序 | `student-uniapp/` | uni-app (Vue 3) + wot-design-uni | 微信小程序 |
+| 管理后台 | `background/` | Vue 3 + Element Plus + ECharts | 桌面浏览器 |
+| 后端服务 | `student-server/` | Spring Boot 3 + MyBatis Plus | JVM (JDK 17+) |
 
 ## 技术架构
 
@@ -27,6 +36,9 @@
 | GSAP | 3.15+ | 动画引擎 |
 | Tailwind CSS | 3.4+ | 原子化CSS |
 | Vant | 4.9+ | 移动端UI组件库（学生端） |
+| wot-design-uni | 1.14+ | 小程序端UI组件库（uni-app） |
+| uni-app | 3.0+ | 跨端开发框架（微信小程序） |
+| Remix Icon | 4.4+ | iconfont 图标库 |
 | Element Plus | 2.9+ | 桌面端UI组件库（管理后台） |
 | ECharts | 5.5+ | 数据图表（管理后台） |
 
@@ -85,6 +97,27 @@ PE-Student/
 │   │   ├── mapper/           # XML 映射文件
 │   │   └── static/           # 前端静态资源
 │   └── pom.xml
+│
+├── student-uniapp/            # 微信小程序端 (uni-app + wot-design-uni)
+│   ├── src/
+│   │   ├── api/              # API 接口封装
+│   │   ├── assets/           # 静态资源 / 样式
+│   │   ├── components/       # 公共组件 (ChatBubble/PostCard/MessagePreview等)
+│   │   ├── composables/      # 组合式函数 (useSocket)
+│   │   ├── http/             # HTTP 请求封装
+│   │   ├── layouts/          # 布局组件 (tabbar)
+│   │   ├── pages/            # 页面组件
+│   │   │   ├── auth/         # 登录/注册/忘记密码
+│   │   │   ├── home/         # 首页/搜索/分类
+│   │   │   ├── message/      # 私信/聊天/通知
+│   │   │   ├── post/         # 帖子详情
+│   │   │   ├── trade/        # 二手交易
+│   │   │   └── user/         # 个人中心/设置/主页
+│   │   ├── stores/           # Pinia 状态管理
+│   │   └── utils/            # 工具函数
+│   ├── pages.config.ts       # 页面路由配置
+│   ├── package.json
+│   └── vite.config.ts
 │
 ├── background/               # 后台管理端
 │   └── admin-frontend/       # 管理后台前端 (Vue 3 + Element Plus)
@@ -190,6 +223,26 @@ npm run dev
 
 ---
 
+### 5. 微信小程序启动
+
+```bash
+cd student-uniapp
+npm install
+
+# 开发模式（输出到 dist/dev/mp-weixin）
+npm run dev:mp-weixin
+
+# 生产构建（输出到 dist/build/mp-weixin）
+npm run build:mp-weixin
+```
+
+构建完成后，打开**微信开发者工具**，导入 `dist/build/mp-weixin`（或 `dist/dev/mp-weixin`）目录。
+
+> **注意**：小程序端使用 uni-app 框架，WebSocket 为手动实现的 STOMP 协议（非 `@stomp/stompjs` 库），
+> 以确保在微信小程序环境下的兼容性。详见 [WebSocket 通信架构](#websocket-通信架构)。
+
+---
+
 ## API 接口
 
 ### 学生端 API（`/api/v1`）
@@ -223,23 +276,161 @@ WebSocket 端点：`/ws`，使用 STOMP 协议。
 
 ---
 
+## WebSocket 通信架构
+
+私信系统采用 **Spring STOMP + WebSocket** 实现实时消息推送，移动端与小程序端使用不同的 STOMP 客户端实现。
+
+### 通信流程
+
+```
+┌─────────────┐    HTTP POST      ┌──────────────┐   STOMP SEND    ┌─────────────┐
+│  发送方      │ ───────────────→ │   Spring      │ ←───────────── │  接收方      │
+│ (任一端)     │                  │   Boot 后端   │                │ (WebSocket)  │
+└─────────────┘                  │               │ ──────────────→ └─────────────┘
+                                 │ save(msg)     │   convertAndSendToUser
+                                 │ + push via    │   (STOMP MESSAGE 帧)
+                                 │ WebSocket     │
+                                 └──────────────┘
+```
+
+1. 发送方通过 HTTP POST `/api/v1/messages/{userId}` 发送消息
+2. 后端保存消息到 MySQL，同时通过 `SimpMessagingTemplate.convertAndSendToUser()` 推送到接收方的 WebSocket 会话
+3. 接收方通过 STOMP SUBSCRIBE `/user/queue/message` 实时接收消息
+
+### 两端实现对比
+
+| | 移动端 (student-app) | 小程序端 (student-uniapp) |
+|---|---|---|
+| STOMP 库 | `@stomp/stompjs` (官方库) | 手动实现 STOMP 帧解析 |
+| WebSocket API | 浏览器原生 `WebSocket` | uni-app `uni.connectSocket` |
+| 心跳 | STOMP heartbeat (10s) | 手动 `\n` 心跳 (10s) |
+| 重连 | `@stomp/stompjs` 内置 | 指数退避重连 (最多10次) |
+| 帧解析 | 库自动处理 | 自定义 `parseStompFrames` |
+| 文件位置 | `composables/useWebSocket.js` | `composables/useSocket.ts` |
+
+### STOMP 帧格式
+
+小程序端手动处理 STOMP 协议，关键帧格式：
+
+```yaml
+# CONNECT 帧（握手）
+CONNECT
+Authorization:Bearer <jwt_token>
+accept-version:1.1,1.2
+heart-beat:10000,10000
+
+\x00
+
+# SUBSCRIBE 帧（订阅私信）
+SUBSCRIBE
+id:sub-user-queue-message
+destination:/user/queue/message
+
+\x00
+
+# MESSAGE 帧（接收消息）
+MESSAGE
+destination:/queue/message-user{sessionId}
+content-type:application/json
+subscription:sub-user-queue-message
+
+{"id":123,"senderId":2,"receiverId":1,"content":"你好","type":1,...}
+\x00
+```
+
+> **注意**：STOMP 协议以 `\x00` (NULL 字节) 作为帧终止符，帧解析时必须确保完整接收 `\x00` 后再处理，
+> 否则会导致不完整帧被错误解析，造成消息重复渲染。
+
+### 消息去重机制
+
+为防止 WebSocket 消息重复推送（重连时服务端可能存在残留订阅），小程序端采用多层去重策略：
+
+1. **帧级去重**：`parseStompFrames` 仅处理以 `\x00` 结尾的完整帧，不完整数据留在缓冲区
+2. **ID 去重**：`addMessageDedup` 使用 `Set<number>` 记录已处理的消息 ID
+3. **数组二次确认**：检查 `messages` 数组中是否已存在相同 ID
+4. **内容指纹去重**：无有效 ID 时使用 `senderId + content + createdAt` 组合键去重
+5. **连接守卫**：旧连接的 `onMessage` 回调通过 `socketTask !== task` 检查自动忽略
+
+---
+
+## 环境配置
+
+### 后端 (student-server)
+
+编辑 `src/main/resources/application.yml`：
+
+```yaml
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:3306/student_platform?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai
+    username: root
+    password: your_password
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+# JWT 配置
+app:
+  jwt:
+    secret: your-jwt-secret-key-min-256-bits
+    expiration: 86400000  # 24小时
+
+# 文件上传 (可选，默认使用本地存储)
+upload:
+  type: local  # local | oss
+  oss:
+    endpoint: oss-cn-hangzhou.aliyuncs.com
+    access-key-id: your_key
+    access-key-secret: your_secret
+    bucket-name: your_bucket
+```
+
+### 移动端 (student-app)
+
+编辑 `.env` 文件：
+
+```env
+VITE_API_BASE_URL=http://localhost:8080/api/v1
+VITE_WS_URL=ws://localhost:8080/ws
+```
+
+### 小程序端 (student-uniapp)
+
+修改 `src/composables/useSocket.ts` 中的 `WS_URL` 常量：
+
+```ts
+const WS_URL = 'ws://your-server:8080/ws'
+```
+
+修改 `src/http/index.ts` 中的 `BASE_URL`：
+
+```ts
+const BASE_URL = 'https://your-server/api/v1'
+```
+
+---
+
 ## 功能模块
 
-### 学生端功能
+### 移动端 Web / 微信小程序 功能
 
-- [x] 用户认证（登录/注册）
+- [x] 用户认证（登录/注册/忘记密码）
 - [x] 首页信息流
-- [x] 帖子发布与管理
+- [x] 帖子发布与管理（文字/图片）
 - [x] 二手交易市场
 - [x] 商品发布与管理
 - [x] 评论系统（支持楼中楼回复）
 - [x] 点赞与收藏
 - [x] 私信聊天（文字/图片/表情包，WebSocket 实时通信）
 - [x] 图片发送（拍照/相册 → 上传 → 图片消息）
-- [x] 表情包（80+ 常用 emoji，分类面板）
+- [x] 表情包（30+ 常用 emoji 面板）
 - [x] 消息通知
 - [x] 个人中心
+- [x] 用户主页（查看他人资料/帖子/商品）
 - [x] 搜索功能
+
+> 小程序端功能与移动端 Web 基本一致，UI 适配微信小程序设计规范。
 
 ### 管理后台功能
 
@@ -279,12 +470,49 @@ WebSocket 端点：`/ws`，使用 STOMP 协议。
 
 ---
 
-## 浏览器支持
+## 运行环境
 
-- iOS Safari 12+
-- Chrome 80+
-- Firefox 75+
-- Edge 80+
+| 端 | 环境要求 |
+|---|---------|
+| 移动端 Web | iOS Safari 12+ / Chrome 80+ / Firefox 75+ / Edge 80+ |
+| 微信小程序 | 微信 8.0+，基础库 3.0+ |
+| 管理后台 | Chrome 80+ / Firefox 75+ / Edge 80+（桌面端） |
+| 后端 | JDK 17+ / MySQL 8.0+ / Redis 7.0+ (可选) |
+
+## 常见问题
+
+### 私信消息重复
+
+**现象**：小程序端收到对方消息时，聊天界面出现两条相同消息。
+
+**原因**：STOMP 帧未完整接收（缺少 `\x00` 终止符）即被解析，导致同一消息处理两次。重连时旧订阅残留也可能造成重复推送。
+
+**解决**：
+1. 确保 `parseStompFrames` 只处理以 `\x00` 结尾的完整帧
+2. 检查 `addMessageDedup` 去重逻辑是否生效
+3. 确认重连前已发送 DISCONNECT 帧清理旧订阅
+
+> 该问题已在 `v1.0.1` 修复，详见 `student-uniapp/src/composables/useSocket.ts`
+
+### WebSocket 连接失败
+
+1. 检查后端 WebSocket 端点 `/ws` 是否可访问
+2. 确认 JWT Token 未过期
+3. 小程序开发工具中检查「不校验合法域名」选项（开发阶段）
+
+### 图片上传失败
+
+1. 检查 `upload.type` 配置（`local` 需要确保上传目录可写）
+2. 使用 OSS 时确认 `endpoint`、`access-key` 配置正确
+3. 小程序端图片选择失败：检查用户授权状态
+
+### 小程序构建报错
+
+1. 确保 Node.js >= 18
+2. 清除缓存：`rm -rf node_modules && npm install`
+3. 检查 `pages.config.ts` 中的路由配置是否正确
+
+---
 
 ## 贡献指南
 

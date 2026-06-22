@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.DS_Store
+*.log
+.uni/
+unpackage/
+src/pages.json
+src/manifest.json
+src/types/uni-pages.d.ts

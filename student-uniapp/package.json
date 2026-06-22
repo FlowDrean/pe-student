@@ -1,0 +1,39 @@
+{
+  "name": "student-uniapp",
+  "version": "1.0.0",
+  "description": "PE-Student 校园互助平台 - 微信小程序端",
+  "scripts": {
+    "dev:mp-weixin": "uni",
+    "build:mp-weixin": "uni build -p mp-weixin",
+    "dev:h5": "uni",
+    "build:h5": "uni build"
+  },
+  "dependencies": {
+    "@dcloudio/uni-app": "3.0.0-alpha-5010320260611001",
+    "@dcloudio/uni-app-plus": "3.0.0-alpha-5010320260611001",
+    "@dcloudio/uni-components": "3.0.0-alpha-5010320260611001",
+    "@dcloudio/uni-h5": "3.0.0-alpha-5010320260611001",
+    "@dcloudio/uni-mp-weixin": "3.0.0-alpha-5010320260611001",
+    "pinia": "^2.3.1",
+    "pinia-plugin-persistedstate": "^4.2.0",
+    "vue": "3.4.38",
+    "wot-design-uni": "^1.14.0"
+  },
+  "devDependencies": {
+    "@dcloudio/types": "3.4.14",
+    "@dcloudio/uni-automator": "3.0.0-alpha-5010320260611001",
+    "@dcloudio/uni-cli-shared": "3.0.0-alpha-5010320260611001",
+    "@dcloudio/vite-plugin-uni": "3.0.0-alpha-5010320260611001",
+    "@uni-helper/vite-plugin-uni-pages": "^0.2.27",
+    "@uni-helper/vite-plugin-uni-layouts": "^0.1.11",
+    "sass": "^1.83.4",
+    "typescript": "^5.7.3",
+    "unocss": "^0.65.4",
+    "@unocss/preset-uno": "^0.65.4",
+    "@unocss/preset-attributify": "^0.65.4",
+    "@unocss/transformer-directives": "^0.65.4",
+    "unocss-applet": "^0.12.2",
+    "vite": "5.4.11",
+    "vue-tsc": "^2.2.0"
+  }
+}
