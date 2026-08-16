@@ -50,7 +50,8 @@
 import { ref, nextTick, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useUserStore } from '@stores/user'
-import { getMessages, sendMessage } from '@api'
+import { useMessageStore } from '@stores/message'
+import { getMessages, sendMessage, markMessageRead } from '@api'
 import { uploadImage } from '@api/upload'
 import { useWebSocket } from '@composables/useWebSocket'
 import ChatBubble from '@components/message/ChatBubble.vue'
@@ -59,6 +60,7 @@ import Loading from '@components/common/Loading.vue'
 
 const route = useRoute()
 const userStore = useUserStore()
+const messageStore = useMessageStore()
 const myId = userStore.userId || 0
 const peerId = route.params.userId
 const inputText = ref('')
@@ -74,6 +76,8 @@ const { connected, connect, subscribe, disconnect } = useWebSocket()
 
 async function initChat() {
   await fetchMessages()
+  // getMessages 已在服务端把该会话标记为已读，这里同步清理本地未读
+  clearLocalUnread()
   loading.value = false
 
   await nextTick()
@@ -96,9 +100,22 @@ async function initChat() {
           createdAt: msg.createdAt || new Date().toISOString(),
         })
         scrollToBottom()
+        // 聊天窗口打开时收到对方消息，立即上报已读，保持服务端未读数准确
+        if (msg.senderId == peerId && msg.id) {
+          markMessageRead(msg.id).catch(() => {})
+        }
       }
     }
   })
+}
+
+/** 清掉本地会话列表中该会话的未读数并刷新角标 */
+function clearLocalUnread() {
+  const conv = messageStore.conversations.find((c) => c.userId == peerId)
+  if (conv && conv.unread) {
+    conv.unread = 0
+    messageStore.setConversations(messageStore.conversations)
+  }
 }
 
 async function fetchMessages() {

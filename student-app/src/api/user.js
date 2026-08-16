@@ -66,6 +66,16 @@ export function unfollowUser(id) {
   return request.delete(`/user/follow/${id}`)
 }
 
+// 获取关注列表（用户关注了谁）
+export function getFollowingList(id, params) {
+  return request.get(`/user/${id}/follows`, { params })
+}
+
+// 获取粉丝列表（谁关注了用户）
+export function getFansList(id, params) {
+  return request.get(`/user/${id}/fans`, { params })
+}
+
 // 获取用户收藏
 export function getUserFavorites(params) {
   return request.get('/user/favorites', { params })

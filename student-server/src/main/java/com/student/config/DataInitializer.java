@@ -30,8 +30,63 @@ public class DataInitializer implements ApplicationRunner {
     @Override
     public void run(ApplicationArguments args) {
         addRoleColumnIfMissing();
+        createFollowTableIfMissing();
+        addReplyToUserIdColumnIfMissing();
         fixNullRoles();
         initAdminUser();
+    }
+
+    /**
+     * 兼容已有数据库：如果 comment 表没有 reply_to_user_id 列则自动添加（楼中楼回复）
+     */
+    private void addReplyToUserIdColumnIfMissing() {
+        try (Connection conn = dataSource.getConnection();
+             Statement stmt = conn.createStatement()) {
+            ResultSet rs = stmt.executeQuery("SELECT reply_to_user_id FROM comment LIMIT 1");
+            rs.close();
+            log.info("reply_to_user_id 列已存在，跳过 DDL");
+        } catch (Exception e) {
+            log.info("reply_to_user_id 列不存在，正在自动添加...");
+            try (Connection conn = dataSource.getConnection();
+                 Statement stmt = conn.createStatement()) {
+                stmt.execute(
+                    "ALTER TABLE `comment` ADD COLUMN `reply_to_user_id` BIGINT DEFAULT NULL " +
+                    "COMMENT '被回复的用户ID（楼中楼回复时使用）' AFTER `parent_id`");
+                log.info("reply_to_user_id 列添加成功");
+            } catch (Exception ex) {
+                log.error("添加 reply_to_user_id 列失败: {}", ex.getMessage());
+            }
+        }
+    }
+
+    /**
+     * 兼容已有数据库：如果 follow 表不存在则自动创建（关注/粉丝功能）
+     */
+    private void createFollowTableIfMissing() {
+        try (Connection conn = dataSource.getConnection();
+             Statement stmt = conn.createStatement()) {
+            ResultSet rs = stmt.executeQuery("SELECT id FROM follow LIMIT 1");
+            rs.close();
+            log.info("follow 表已存在，跳过 DDL");
+        } catch (Exception e) {
+            log.info("follow 表不存在，正在自动创建...");
+            try (Connection conn = dataSource.getConnection();
+                 Statement stmt = conn.createStatement()) {
+                stmt.execute(
+                    "CREATE TABLE IF NOT EXISTS `follow` (" +
+                    "`id` BIGINT PRIMARY KEY AUTO_INCREMENT," +
+                    "`user_id` BIGINT NOT NULL COMMENT '关注者ID'," +
+                    "`following_id` BIGINT NOT NULL COMMENT '被关注者ID'," +
+                    "`created_at` DATETIME DEFAULT CURRENT_TIMESTAMP," +
+                    "UNIQUE KEY `uk_user_following` (`user_id`, `following_id`)," +
+                    "INDEX `idx_user_id` (`user_id`)," +
+                    "INDEX `idx_following_id` (`following_id`)" +
+                    ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='关注表'");
+                log.info("follow 表创建成功");
+            } catch (Exception ex) {
+                log.error("创建 follow 表失败: {}", ex.getMessage());
+            }
+        }
     }
 
     /**

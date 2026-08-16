@@ -54,6 +54,26 @@ public class UserController {
         return Result.ok(userService.getUserTrades(currentUserId, id, page, size));
     }
 
+    @GetMapping("/{id}/follows")
+    public Result<?> getFollowingList(
+            @PathVariable Long id,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        Long currentUserId = null;
+        try { currentUserId = securityUtil.getCurrentUserId(); } catch (Exception ignored) {}
+        return Result.ok(userService.getFollowingList(currentUserId, id, page, size));
+    }
+
+    @GetMapping("/{id}/fans")
+    public Result<?> getFansList(
+            @PathVariable Long id,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        Long currentUserId = null;
+        try { currentUserId = securityUtil.getCurrentUserId(); } catch (Exception ignored) {}
+        return Result.ok(userService.getFansList(currentUserId, id, page, size));
+    }
+
     @GetMapping("/favorites")
     public Result<?> getUserFavorites(
             @RequestParam(defaultValue = "1") int targetType,
@@ -63,12 +83,14 @@ public class UserController {
     }
 
     @PostMapping("/follow/{id}")
-    public Result<Boolean> follow(@PathVariable Long id) {
-        return Result.ok(userService.toggleFollow(securityUtil.getCurrentUserId(), id));
+    public Result<Void> follow(@PathVariable Long id) {
+        userService.follow(securityUtil.getCurrentUserId(), id);
+        return Result.ok();
     }
 
     @DeleteMapping("/follow/{id}")
-    public Result<Boolean> unfollow(@PathVariable Long id) {
-        return Result.ok(userService.toggleFollow(securityUtil.getCurrentUserId(), id));
+    public Result<Void> unfollow(@PathVariable Long id) {
+        userService.unfollow(securityUtil.getCurrentUserId(), id);
+        return Result.ok();
     }
 }

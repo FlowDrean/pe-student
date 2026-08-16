@@ -148,7 +148,8 @@ const statusMap = { 0: '已下架', 1: '在售', 2: '已售', 3: '交易中' }
 const statusType = (s) => ({ 0: 'info', 1: 'success', 2: 'warning', 3: 'primary' }[s] || 'info')
 const conditionMap = { 1: '全新', 2: '九成新', 3: '八成新', 4: '七成新及以下' }
 
-const BACKEND = 'http://localhost:8080'
+// 图片走相对路径（开发环境由 vite 代理 /uploads，生产同源部署直接生效）；跨域部署时通过 VITE_BACKEND_URL 覆盖
+const BACKEND = import.meta.env.VITE_BACKEND_URL || ''
 function getImageUrl(url) { if (!url) return ''; if (url.startsWith('http')) return url; return BACKEND + (url.startsWith('/') ? url : '/' + url) }
 function onImgError(e) { e.target.style.display = 'none' }
 

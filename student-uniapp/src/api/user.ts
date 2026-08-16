@@ -1,4 +1,6 @@
 import http from '@/http'
+import { useUserStore } from '@stores/user'
+import { API_BASE_URL } from '@/config'
 
 export const userApi = {
   getProfile() {
@@ -9,13 +11,16 @@ export const userApi = {
   },
   uploadAvatar(filePath: string) {
     return new Promise((resolve, reject) => {
+      const userStore = useUserStore()
+      const header: Record<string, string> = {}
+      if (userStore.token) {
+        header['Authorization'] = `Bearer ${userStore.token}`
+      }
       uni.uploadFile({
-        url: 'http://localhost:8080/api/v1/user/avatar',
+        url: `${API_BASE_URL}/user/avatar`,
         filePath,
         name: 'file',
-        header: {
-          Authorization: `Bearer ${uni.getStorageSync('student_app_token') || ''}`,
-        },
+        header,
         success: (res) => {
           try {
             const data = JSON.parse(res.data)
@@ -41,6 +46,12 @@ export const userApi = {
   },
   unfollowUser(id: number) {
     return http.delete(`/user/follow/${id}`)
+  },
+  getFollowingList(id: number, params?: any) {
+    return http.get(`/user/${id}/follows`, params)
+  },
+  getFansList(id: number, params?: any) {
+    return http.get(`/user/${id}/fans`, params)
   },
   getFavorites(params?: any) {
     return http.get('/user/favorites', params)

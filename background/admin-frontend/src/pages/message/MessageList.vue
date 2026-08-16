@@ -109,7 +109,8 @@ const pagination = reactive({ page: 1, size: 10, total: 0 })
 const typeMap = { 1: '文字', 2: '图片', 3: '系统消息' }
 const typeTag = (t) => ({ 1: '', 2: 'warning', 3: 'info' }[t] || '')
 
-const BACKEND = 'http://localhost:8080'
+// 图片走相对路径（开发环境由 vite 代理 /uploads，生产同源部署直接生效）；跨域部署时通过 VITE_BACKEND_URL 覆盖
+const BACKEND = import.meta.env.VITE_BACKEND_URL || ''
 function getImageUrl(url) { if (!url) return ''; if (url.startsWith('http')) return url; return BACKEND + (url.startsWith('/') ? url : '/' + url) }
 function onImgError(e) { e.target.style.display = 'none' }
 

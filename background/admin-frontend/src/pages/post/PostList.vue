@@ -138,7 +138,8 @@ const categoryMap = { HELP: '求助', FOOD: '美食', STUDY: '学习', LIFE: '�
 const statusMap = { 0: '已删除', 1: '正常', 2: '审核中' }
 const statusType = (s) => ({ 0: 'danger', 1: 'success', 2: 'warning' }[s] || 'info')
 
-const BACKEND = 'http://localhost:8080'
+// 图片走相对路径（开发环境由 vite 代理 /uploads，生产同源部署直接生效）；跨域部署时通过 VITE_BACKEND_URL 覆盖
+const BACKEND = import.meta.env.VITE_BACKEND_URL || ''
 function getImageUrl(url) { if (!url) return ''; if (url.startsWith('http')) return url; return BACKEND + (url.startsWith('/') ? url : '/' + url) }
 function onImgError(e) { e.target.style.display = 'none' }
 

@@ -6,8 +6,7 @@
 import { ref, onUnmounted } from 'vue'
 import { useUserStore } from '@stores/user'
 import { useMessageStore } from '@stores/message'
-
-const WS_URL = 'ws://localhost:8080/ws'
+import { WS_URL } from '@/config'
 
 export function useSocket() {
   // ── 状态 ──

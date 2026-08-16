@@ -12,6 +12,8 @@ public class Comment {
     private Long postId;
     private Long userId;
     private Long parentId;
+    /** 被回复的用户ID（楼中楼回复时展示"回复 @xxx"） */
+    private Long replyToUserId;
     private String content;
     private Integer likes;
     private Integer status;

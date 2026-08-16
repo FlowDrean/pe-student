@@ -10,16 +10,37 @@
         </div>
         <h2 class="profile-card__name">{{ user.nickname || '未登录' }}</h2>
         <p class="profile-card__school">{{ user.school || '请设置学校信息' }}</p>
+        <!-- 数据统计 -->
+        <div class="profile-stats">
+          <div class="profile-stat">
+            <span class="profile-stat__num">{{ user.postCount ?? 0 }}</span>
+            <span class="profile-stat__label">帖子</span>
+          </div>
+          <div class="profile-stat profile-stat--link" @click="goFollows('following')">
+            <span class="profile-stat__num">{{ user.followCount ?? 0 }}</span>
+            <span class="profile-stat__label">关注</span>
+          </div>
+          <div class="profile-stat profile-stat--link" @click="goFollows('fans')">
+            <span class="profile-stat__num">{{ user.fansCount ?? 0 }}</span>
+            <span class="profile-stat__label">粉丝</span>
+          </div>
+          <div class="profile-stat">
+            <span class="profile-stat__num">{{ user.likedCount ?? 0 }}</span>
+            <span class="profile-stat__label">获赞</span>
+          </div>
+        </div>
       </div>
     </div>
 
-    <!-- 他人主页：发私信 + 内容标签 -->
+    <!-- 他人主页：关注 + 发私信 + 内容标签 -->
     <template v-if="!isSelf">
-      <div v-if="isLogin" class="menu-section">
-        <button class="menu-item" @click="goChat">
+      <div v-if="isLogin" class="menu-section profile-actions">
+        <button class="profile-action-btn" :class="{ 'profile-action-btn--followed': isFollowed }" @click="handleFollow">
+          {{ isFollowed ? '已关注' : '+ 关注' }}
+        </button>
+        <button class="menu-item profile-action-chat" @click="goChat">
           <SvgIcon name="chat" :size="18" color="var(--ink-600)" />
           <span>发私信</span>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ink-300)" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
         </button>
       </div>
 
@@ -117,7 +138,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { showConfirmDialog, showImagePreview } from 'vant'
 import { useUserStore } from '@stores/user'
-import { getUserProfile, getUserById, getUserPosts, getUserTrades } from '@api/user'
+import { getUserProfile, getUserById, getUserPosts, getUserTrades, followUser, unfollowUser } from '@api/user'
 import { togglePostLike } from '@api'
 import PostCard from '@components/post/PostCard.vue'
 import TradeCard from '@components/trade/TradeCard.vue'
@@ -139,6 +160,7 @@ const userPosts = ref([])
 const userTrades = ref([])
 const postsLoading = ref(false)
 const tradesLoading = ref(false)
+const isFollowed = ref(false)
 
 async function fetchUserPosts() {
   if (!profileUserId.value) return
@@ -165,6 +187,7 @@ onMounted(async () => {
     // 查看他人主页
     try {
       user.value = await getUserById(profileUserId.value)
+      isFollowed.value = !!user.value.isFollowed
     } catch { /* ignore */ }
     // 并行加载帖子和商品
     await Promise.all([fetchUserPosts(), fetchUserTrades()])
@@ -177,6 +200,26 @@ onMounted(async () => {
     } catch { /* ignore */ }
   }
 })
+
+async function handleFollow() {
+  if (!profileUserId.value) return
+  try {
+    if (isFollowed.value) {
+      await unfollowUser(profileUserId.value)
+      isFollowed.value = false
+      user.value.fansCount = Math.max(0, (user.value.fansCount || 0) - 1)
+    } else {
+      await followUser(profileUserId.value)
+      isFollowed.value = true
+      user.value.fansCount = (user.value.fansCount || 0) + 1
+    }
+  } catch { /* 错误已在请求拦截器中处理 */ }
+}
+
+function goFollows(type) {
+  const base = profileUserId.value ? `/user-profile/${profileUserId.value}/follows` : '/user-profile/follows'
+  router.push({ path: base, query: { type } })
+}
 
 async function handleLike(postId) {
   try {
@@ -284,7 +327,76 @@ function handleLogout() {
   font-size: var(--text-sm);
   color: var(--ink-400);
   margin-top: 2px;
-  padding-bottom: var(--space-5);
+}
+
+/* ── 数据统计 ── */
+.profile-stats {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-6);
+  padding: var(--space-3) var(--space-4) var(--space-5);
+}
+
+.profile-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.profile-stat__num {
+  font-family: var(--font-mono);
+  font-size: var(--text-lg);
+  font-weight: var(--font-bold);
+  color: var(--ink-900);
+}
+
+.profile-stat__label {
+  font-size: var(--text-2xs);
+  color: var(--ink-400);
+}
+
+.profile-stat--link {
+  cursor: pointer;
+}
+
+.profile-stat--link:active {
+  opacity: 0.6;
+}
+
+/* ── 关注/私信操作 ── */
+.profile-actions {
+  display: flex;
+  gap: var(--space-2);
+  align-items: stretch;
+}
+
+.profile-action-btn {
+  flex-shrink: 0;
+  padding: 0 24px;
+  border-radius: var(--radius-md);
+  border: 2px solid var(--accent-600);
+  background: var(--accent-600);
+  color: #fff;
+  font-size: var(--text-sm);
+  font-weight: var(--font-bold);
+  transition: all var(--transition-fast);
+}
+
+.profile-action-btn:active {
+  transform: scale(0.95);
+}
+
+.profile-action-btn--followed {
+  background: var(--bg-primary);
+  border-color: var(--ink-200);
+  color: var(--ink-400);
+  font-weight: var(--font-medium);
+}
+
+.profile-action-chat {
+  flex: 1;
+  justify-content: center;
 }
 
 /* ── 标签切换 ── */

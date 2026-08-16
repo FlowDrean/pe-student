@@ -7,6 +7,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.student.entity.Favorite;
+import com.student.entity.Follow;
 import com.student.entity.Post;
 import com.student.entity.Trade;
 import com.student.entity.User;
@@ -15,9 +16,11 @@ import com.student.entity.dto.UserDTO;
 import com.student.exception.BusinessException;
 import com.student.exception.ErrorCode;
 import com.student.mapper.FavoriteMapper;
+import com.student.mapper.FollowMapper;
 import com.student.mapper.PostMapper;
 import com.student.mapper.TradeMapper;
 import com.student.mapper.UserMapper;
+import com.student.service.NotificationService;
 import com.student.service.UserService;
 import com.student.utils.JwtUtil;
 import com.student.vo.PageVO;
@@ -31,6 +34,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 @Service
@@ -42,6 +46,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     private final PostMapper postMapper;
     private final TradeMapper tradeMapper;
     private final FavoriteMapper favoriteMapper;
+    private final FollowMapper followMapper;
+    private final NotificationService notificationService;
 
     @Override
     @Transactional
@@ -155,15 +161,108 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             throw new BusinessException(ErrorCode.USER_NOT_FOUND);
         }
         UserVO vo = toVO(user);
-        // TODO: 查询是否关注
-        vo.setIsFollowed(false);
+        vo.setIsFollowed(currentUserId != null && isFollowed(currentUserId, targetUserId));
         return vo;
     }
 
     @Override
-    public boolean toggleFollow(Long userId, Long targetUserId) {
-        // TODO: 实现关注/取消关注逻辑
-        return true;
+    @Transactional
+    public void follow(Long userId, Long targetUserId) {
+        if (userId.equals(targetUserId)) {
+            throw new BusinessException("不能关注自己");
+        }
+        User target = getById(targetUserId);
+        if (target == null) {
+            throw new BusinessException(ErrorCode.USER_NOT_FOUND);
+        }
+        if (isFollowed(userId, targetUserId)) {
+            return; // 已关注，幂等处理
+        }
+        Follow follow = new Follow();
+        follow.setUserId(userId);
+        follow.setFollowingId(targetUserId);
+        followMapper.insert(follow);
+
+        // 关注通知（type=3，targetId 为关注者，前端据此跳转其主页）
+        User follower = getById(userId);
+        String followerName = follower != null && follower.getNickname() != null
+                ? follower.getNickname() : (follower != null ? follower.getUsername() : "有人");
+        notificationService.createNotification(targetUserId, 3,
+                "新的关注", followerName + " 关注了你", userId, 3);
+    }
+
+    @Override
+    @Transactional
+    public void unfollow(Long userId, Long targetUserId) {
+        followMapper.delete(new LambdaQueryWrapper<Follow>()
+                .eq(Follow::getUserId, userId)
+                .eq(Follow::getFollowingId, targetUserId));
+    }
+
+    @Override
+    public boolean isFollowed(Long userId, Long targetUserId) {
+        if (userId == null) return false;
+        return followMapper.selectCount(new LambdaQueryWrapper<Follow>()
+                .eq(Follow::getUserId, userId)
+                .eq(Follow::getFollowingId, targetUserId)) > 0;
+    }
+
+    @Override
+    public Object getFollowingList(Long currentUserId, Long userId, int page, int size) {
+        IPage<Follow> followPage = followMapper.selectPage(new Page<>(page, size),
+                new LambdaQueryWrapper<Follow>()
+                        .eq(Follow::getUserId, userId)
+                        .orderByDesc(Follow::getCreatedAt));
+
+        List<UserVO> list = followPage.getRecords().stream()
+                .map(f -> toBriefVO(getById(f.getFollowingId()), currentUserId))
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+
+        PageVO<UserVO> vo = new PageVO<>();
+        vo.setList(list);
+        vo.setTotal(followPage.getTotal());
+        vo.setPage(followPage.getCurrent());
+        vo.setSize(followPage.getSize());
+        vo.setPages(followPage.getPages());
+        return vo;
+    }
+
+    @Override
+    public Object getFansList(Long currentUserId, Long userId, int page, int size) {
+        IPage<Follow> fansPage = followMapper.selectPage(new Page<>(page, size),
+                new LambdaQueryWrapper<Follow>()
+                        .eq(Follow::getFollowingId, userId)
+                        .orderByDesc(Follow::getCreatedAt));
+
+        List<UserVO> list = fansPage.getRecords().stream()
+                .map(f -> toBriefVO(getById(f.getUserId()), currentUserId))
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+
+        PageVO<UserVO> vo = new PageVO<>();
+        vo.setList(list);
+        vo.setTotal(fansPage.getTotal());
+        vo.setPage(fansPage.getCurrent());
+        vo.setSize(fansPage.getSize());
+        vo.setPages(fansPage.getPages());
+        return vo;
+    }
+
+    /** 关注/粉丝列表项：轻量用户信息 + 当前用户是否已关注 */
+    private UserVO toBriefVO(User user, Long currentUserId) {
+        if (user == null || user.getStatus() == null || user.getStatus() == 0) return null;
+        UserVO vo = new UserVO();
+        vo.setId(user.getId());
+        vo.setUsername(user.getUsername());
+        vo.setNickname(user.getNickname());
+        vo.setAvatar(user.getAvatar());
+        vo.setSchool(user.getSchool());
+        vo.setMajor(user.getMajor());
+        vo.setBio(user.getBio());
+        vo.setIsFollowed(currentUserId != null && !currentUserId.equals(user.getId())
+                && isFollowed(currentUserId, user.getId()));
+        return vo;
     }
 
     @Override
@@ -299,9 +398,11 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         // 真实获赞数（所有帖子点赞数之和）
         vo.setLikedCount(postMapper.sumLikesByUserId(user.getId()));
 
-        // 关注/粉丝暂未实现 follow 表
-        vo.setFollowCount(0);
-        vo.setFansCount(0);
+        // 真实关注/粉丝数
+        vo.setFollowCount(followMapper.selectCount(
+                new LambdaQueryWrapper<Follow>().eq(Follow::getUserId, user.getId())).intValue());
+        vo.setFansCount(followMapper.selectCount(
+                new LambdaQueryWrapper<Follow>().eq(Follow::getFollowingId, user.getId())).intValue());
         return vo;
     }
 }

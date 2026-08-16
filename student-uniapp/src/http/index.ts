@@ -3,11 +3,12 @@
  * 自动注入 JWT Token，统一错误处理
  */
 import { useUserStore } from '@stores/user'
+import { API_BASE_URL, SERVER_BASE_URL } from '@/config'
 
-const BASE_URL = 'http://localhost:8080/api/v1'
+const BASE_URL = API_BASE_URL
 
 /** 静态资源基础地址（图片等） */
-const ASSET_BASE = 'http://localhost:8080'
+const ASSET_BASE = SERVER_BASE_URL
 
 /**
  * 解析静态资源完整 URL

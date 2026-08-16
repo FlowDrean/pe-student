@@ -24,6 +24,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -48,12 +49,40 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper, Comment> impl
 
         var pageResult = page(new Page<>(page, size), wrapper);
 
+        // 一次性查出本页所有一级评论的回复（楼中楼）
+        List<Long> parentIds = pageResult.getRecords().stream()
+                .map(Comment::getId)
+                .collect(Collectors.toList());
+        Map<Long, List<Map<String, Object>>> repliesMap = new HashMap<>();
+        Map<Long, User> userCache = new HashMap<>();
+        if (!parentIds.isEmpty()) {
+            List<Comment> replies = list(new LambdaQueryWrapper<Comment>()
+                    .in(Comment::getParentId, parentIds)
+                    .eq(Comment::getStatus, 1)
+                    .orderByAsc(Comment::getCreatedAt));
+            for (Comment r : replies) {
+                Map<String, Object> map = BeanUtil.beanToMap(r);
+                User user = userCache.computeIfAbsent(r.getUserId(), id -> userMapper.selectById(id));
+                if (user != null) {
+                    map.put("user", BeanUtil.copyProperties(user, UserVO.class));
+                }
+                if (r.getReplyToUserId() != null) {
+                    User replyTo = userCache.computeIfAbsent(r.getReplyToUserId(), id -> userMapper.selectById(id));
+                    if (replyTo != null) {
+                        map.put("replyToName", replyTo.getNickname() != null ? replyTo.getNickname() : replyTo.getUsername());
+                    }
+                }
+                repliesMap.computeIfAbsent(r.getParentId(), k -> new ArrayList<>()).add(map);
+            }
+        }
+
         List<Map<String, Object>> list = pageResult.getRecords().stream().map(c -> {
             Map<String, Object> map = BeanUtil.beanToMap(c);
-            User user = userMapper.selectById(c.getUserId());
+            User user = userCache.computeIfAbsent(c.getUserId(), id -> userMapper.selectById(id));
             if (user != null) {
                 map.put("user", BeanUtil.copyProperties(user, UserVO.class));
             }
+            map.put("replies", repliesMap.getOrDefault(c.getId(), List.of()));
             return map;
         }).collect(Collectors.toList());
 
@@ -76,24 +105,43 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper, Comment> impl
         comment.setPostId(postId);
         comment.setUserId(userId);
         comment.setContent(dto.getContent());
-        comment.setParentId(dto.getParentId() != null ? dto.getParentId() : 0);
         comment.setLikes(0);
         comment.setStatus(1);
+
+        // 楼中楼：父评论本身是回复时，归到一级评论下，并记录被回复人
+        if (dto.getParentId() != null && dto.getParentId() > 0) {
+            Comment parent = getById(dto.getParentId());
+            if (parent != null && parent.getParentId() != null && parent.getParentId() > 0) {
+                comment.setParentId(parent.getParentId());
+                comment.setReplyToUserId(dto.getReplyToUserId() != null ? dto.getReplyToUserId() : parent.getUserId());
+            } else {
+                comment.setParentId(dto.getParentId());
+                comment.setReplyToUserId(dto.getReplyToUserId());
+            }
+        } else {
+            comment.setParentId(0L);
+        }
         save(comment);
 
         // 更新帖子评论数
         postMapper.incrComments(postId, 1);
 
-        // 发送通知
+        User commenter = userMapper.selectById(userId);
+        String commenterName = commenter != null ? (commenter.getNickname() != null ? commenter.getNickname() : commenter.getUsername()) : "有人";
+
+        // 通知帖子作者（自己评论自己的帖子除外）
         if (!post.getUserId().equals(userId)) {
-            User commenter = userMapper.selectById(userId);
-            String commenterName = commenter != null ? (commenter.getNickname() != null ? commenter.getNickname() : commenter.getUsername()) : "有人";
-            String preview = dto.getContent();
-            if (preview != null && preview.length() > 50) {
-                preview = preview.substring(0, 50) + "...";
-            }
+            String preview = previewOf(dto.getContent());
             notificationService.createNotification(post.getUserId(), 2,
                     "新的评论", commenterName + " 评论了你：「" + preview + "」", postId, 1);
+        }
+
+        // 通知被回复的评论作者（楼中楼）
+        if (comment.getReplyToUserId() != null && !comment.getReplyToUserId().equals(userId)
+                && !comment.getReplyToUserId().equals(post.getUserId())) {
+            String preview = previewOf(dto.getContent());
+            notificationService.createNotification(comment.getReplyToUserId(), 2,
+                    "新的回复", commenterName + " 回复了你：「" + preview + "」", postId, 1);
         }
 
         Map<String, Object> result = new HashMap<>();
@@ -102,7 +150,20 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper, Comment> impl
         if (user != null) {
             result.put("user", BeanUtil.copyProperties(user, UserVO.class));
         }
+        if (comment.getReplyToUserId() != null) {
+            User replyTo = userMapper.selectById(comment.getReplyToUserId());
+            if (replyTo != null) {
+                result.put("replyToName", replyTo.getNickname() != null ? replyTo.getNickname() : replyTo.getUsername());
+            }
+        }
         return Result.ok(result);
+    }
+
+    private String previewOf(String content) {
+        if (content != null && content.length() > 50) {
+            return content.substring(0, 50) + "...";
+        }
+        return content;
     }
 
     @Override

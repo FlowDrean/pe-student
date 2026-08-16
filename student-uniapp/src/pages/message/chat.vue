@@ -20,12 +20,7 @@
         <template v-for="msg in messages" :key="msg.id">
           <!-- 对方的消息：头像在左，气泡在右 -->
           <view v-if="msg.senderId !== userStore.userId" :id="`msg-${msg.id}`" class="chat-page__msg-row">
-            <view
-              class="chat-page__msg-avatar"
-              :style="{ background: otherAvatarColor }"
-            >
-              <text class="chat-page__msg-avatar-text">{{ peerFirstChar }}</text>
-            </view>
+            <UserAvatar :avatar="peerAvatar" :name="peerName" :user-id="peerId" :size="36" />
             <view
               class="chat-page__bubble"
               :class="{
@@ -61,12 +56,7 @@
               />
               <text v-else class="chat-page__bubble-text">{{ msg.content }}</text>
             </view>
-            <view
-              class="chat-page__msg-avatar"
-              :style="{ background: selfAvatarColor }"
-            >
-              <text class="chat-page__msg-avatar-text">{{ selfFirstChar }}</text>
-            </view>
+            <UserAvatar :avatar="selfAvatarUrl" :name="userStore.nickname" :user-id="userStore.userId || 0" :size="36" />
           </view>
         </template>
         <view id="chat-bottom" class="chat-page__bottom-anchor" />
@@ -119,11 +109,13 @@
 import { ref, computed, nextTick, onUnmounted } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { messageApi } from '@api/message'
+import { userApi } from '@api/user'
 import { uploadImage } from '@api/upload'
 import { resolveAssetUrl } from '@/http'
 import { useUserStore } from '@stores/user'
 import { useMessageStore } from '@stores/message'
 import { useSocket } from '@composables/useSocket'
+import UserAvatar from '@components/common/UserAvatar.vue'
 
 const userStore = useUserStore()
 const messageStore = useMessageStore()
@@ -138,6 +130,7 @@ const EMOJI_PANEL_HEIGHT = 200
 
 const peerId = ref<number>(0)
 const peerName = ref('用户')
+const peerAvatar = ref('')
 const messages = ref<any[]>([])
 const inputText = ref('')
 const showEmoji = ref(false)
@@ -157,20 +150,7 @@ let unsubWs: (() => void) | null = null
 
 const emojis = ['😀','😂','🤣','😍','🥰','😘','😜','😎','🤩','😇','🤔','😅','😢','😡','👍','👎','🙏','💪','👏','🔥','❤️','💔','🎉','🌟','🍕','☕','🎵','📚','✏️','💻','🌞','🌈','🌸','🐱','🐶','🎮','⚽']
 
-const selfAvatarColor = computed(() => {
-  const colors = ['#07C160', '#f97316', '#059669', '#f59e0b', '#dc2626', '#7c3aed']
-  const idx = (userStore.userId || 0) % colors.length
-  return colors[idx]
-})
-
-const otherAvatarColor = computed(() => {
-  const colors = ['#7c3aed', '#dc2626', '#f59e0b', '#059669', '#f97316', '#07C160']
-  const idx = (peerId.value || 0) % colors.length
-  return colors[idx]
-})
-
-const selfFirstChar = computed(() => (userStore.userInfo?.nickname || userStore.userInfo?.username || '我').charAt(0))
-const peerFirstChar = computed(() => (peerName.value || '用').charAt(0))
+const selfAvatarUrl = computed(() => userStore.userInfo?.avatar || '')
 
 // 使用 ref 管理已去重 ID，确保跨会话正确重置
 const messageIds = ref<Set<number>>(new Set())
@@ -209,6 +189,18 @@ onLoad((options: any) => {
   peerId.value = Number(options.peerId) || 0
   peerName.value = decodeURIComponent(options.peerName || '用户')
   uni.setNavigationBarTitle({ title: peerName.value })
+
+  // 拉取对方头像（并兜底补全昵称）
+  if (peerId.value) {
+    userApi.getUserById(peerId.value).then((u: any) => {
+      if (!u) return
+      peerAvatar.value = u.avatar || ''
+      if (!options.peerName || options.peerName === 'undefined') {
+        peerName.value = u.nickname || u.username || peerName.value
+        uni.setNavigationBarTitle({ title: peerName.value })
+      }
+    }).catch(() => {})
+  }
 
   // 进入新会话时重置消息列表和去重集合
   messages.value = []

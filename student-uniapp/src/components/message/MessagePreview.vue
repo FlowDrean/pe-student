@@ -5,9 +5,7 @@
     @tap="$emit('click')"
   >
     <!-- 头像 -->
-    <view class="message-preview__avatar" :style="{ background: avatarColor }">
-      <text class="message-preview__avatar-text">{{ firstChar }}</text>
-    </view>
+    <UserAvatar :avatar="conversation.avatar" :name="conversation.nickname" :user-id="conversation.userId" :size="44" />
 
     <!-- 中间内容 -->
     <view class="message-preview__body">
@@ -28,6 +26,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { timeAgo } from '@utils/format'
+import UserAvatar from '@components/common/UserAvatar.vue'
 
 interface Conversation {
   userId: number
@@ -45,14 +44,6 @@ const props = defineProps<{
 defineEmits<{
   click: []
 }>()
-
-const firstChar = computed(() => (props.conversation.nickname || '?').charAt(0))
-
-const avatarColor = computed(() => {
-  const colors = ['#07C160', '#f97316', '#059669', '#f59e0b']
-  const idx = (props.conversation.userId || 0) % colors.length
-  return colors[idx]
-})
 
 const unreadText = computed(() => {
   const n = props.conversation.unread

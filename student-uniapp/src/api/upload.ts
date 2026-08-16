@@ -1,4 +1,5 @@
 import { useUserStore } from '@stores/user'
+import { API_BASE_URL } from '@/config'
 
 /**
  * 图片上传 — 使用 uni.uploadFile
@@ -13,7 +14,7 @@ export function uploadImage(filePath: string): Promise<{ url: string }> {
     }
 
     uni.uploadFile({
-      url: 'http://localhost:8080/api/v1/upload/image',
+      url: `${API_BASE_URL}/upload/image`,
       filePath,
       name: 'file',
       header,
@@ -35,31 +36,13 @@ export function uploadImage(filePath: string): Promise<{ url: string }> {
 }
 
 /**
- * 批量上传图片 — POST /api/v1/upload/images (最多9张)
+ * 批量上传图片 — 后端仅提供单张接口，这里循环逐张上传
  */
-export function uploadImages(filePaths: string[]): Promise<string[]> {
-  return new Promise((resolve, reject) => {
-    const userStore = useUserStore()
-    const header: Record<string, string> = {}
-    if (userStore.token) {
-      header['Authorization'] = `Bearer ${userStore.token}`
-    }
-
-    uni.uploadFile({
-      url: 'http://localhost:8080/api/v1/upload/images',
-      filePath: filePaths[0],
-      name: 'files',
-      header,
-      success: (res) => {
-        try {
-          const data = JSON.parse(res.data)
-          if (data.code === 200) resolve(data.data)
-          else reject(new Error(data.message || '上传失败'))
-        } catch {
-          reject(new Error('上传失败'))
-        }
-      },
-      fail: reject,
-    })
-  })
+export async function uploadImages(filePaths: string[]): Promise<string[]> {
+  const urls: string[] = []
+  for (const filePath of filePaths) {
+    const result = await uploadImage(filePath)
+    urls.push(result.url)
+  }
+  return urls
 }

@@ -15,9 +15,7 @@
       <!-- Author Header -->
       <view class="post-detail__header card">
         <view class="post-detail__author" @tap="goProfile(post.userId)">
-          <view class="post-detail__avatar" :style="{ background: avatarColor }">
-            <text class="post-detail__avatar-text">{{ firstChar }}</text>
-          </view>
+          <UserAvatar :avatar="post.user?.avatar" :name="post.user?.nickname" :user-id="post.userId" :size="44" />
           <view class="post-detail__author-info">
             <text class="post-detail__nickname">{{ post.user?.nickname || '匿名用户' }}</text>
             <text class="post-detail__time">{{ timeAgo(post.createdAt) }}</text>
@@ -135,6 +133,7 @@ import ImageGrid from '@components/post/ImageGrid.vue'
 import CommentItem from '@components/comment/CommentItem.vue'
 import Loading from '@components/common/Loading.vue'
 import ErrorState from '@components/common/ErrorState.vue'
+import UserAvatar from '@components/common/UserAvatar.vue'
 
 const postStore = usePostStore()
 const { comments } = storeToRefs(postStore)
@@ -160,14 +159,6 @@ const categoryMap: Record<string, { label: string; color: string }> = {
 }
 const catColor = computed(() => categoryMap[post.value?.category || 'other']?.color || '#868e96')
 const categoryLabel = computed(() => categoryMap[post.value?.category || 'other']?.label || '其他')
-
-// ---- Avatar ----
-const firstChar = computed(() => (post.value?.user?.nickname || '匿').charAt(0))
-const avatarColor = computed(() => {
-  const colors = ['#07C160', '#f97316', '#059669', '#f59e0b', '#dc2626', '#7c3aed']
-  const idx = (post.value?.userId || 0) % colors.length
-  return colors[idx]
-})
 
 // ---- Map comment to component format ----
 // 优先使用后端返回的 user 对象，兼容乐观更新的扁平字段

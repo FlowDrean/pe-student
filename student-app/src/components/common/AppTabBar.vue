@@ -67,11 +67,12 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { TAB_BARS } from '@utils/constants'
 import { useMessageStore } from '@stores/message'
 import { useUserStore } from '@stores/user'
+import { getUnreadCount } from '@api/message'
 
 const route = useRoute()
 const messageStore = useMessageStore()
@@ -80,6 +81,15 @@ const userStore = useUserStore()
 const tabs = TAB_BARS
 
 const badge = computed(() => messageStore.totalUnread)
+
+// 挂载时从服务端同步未读消息总数，避免本地累加导致的角标失真
+onMounted(async () => {
+  if (!userStore.isLogin) return
+  try {
+    const count = await getUnreadCount()
+    messageStore.setUnreadCount(count || 0)
+  } catch { /* 静默失败，保留本地值 */ }
+})
 
 function isActive(key) {
   const path = route.path

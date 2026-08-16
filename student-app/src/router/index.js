@@ -178,6 +178,18 @@ const routes = [
         meta: { title: '我的收藏', requiresAuth: true },
       },
       {
+        path: 'follows',
+        name: 'MyFollows',
+        component: () => import('@pages/user/FollowList.vue'),
+        meta: { title: '关注与粉丝', requiresAuth: true },
+      },
+      {
+        path: ':id/follows',
+        name: 'UserFollows',
+        component: () => import('@pages/user/FollowList.vue'),
+        meta: { title: '关注与粉丝' },
+      },
+      {
         path: 'settings',
         name: 'Settings',
         component: () => import('@pages/user/Settings.vue'),

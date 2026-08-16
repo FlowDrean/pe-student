@@ -57,6 +57,7 @@ CREATE TABLE IF NOT EXISTS `comment` (
     `post_id` BIGINT NOT NULL COMMENT '帖子ID',
     `user_id` BIGINT NOT NULL COMMENT '评论者ID',
     `parent_id` BIGINT DEFAULT 0 COMMENT '父评论ID',
+    `reply_to_user_id` BIGINT DEFAULT NULL COMMENT '被回复的用户ID（楼中楼回复时使用）',
     `content` TEXT NOT NULL COMMENT '评论内容',
     `likes` INT DEFAULT 0 COMMENT '点赞数',
     `status` TINYINT DEFAULT 1 COMMENT '状态: 0-删除 1-正常',
@@ -139,6 +140,17 @@ CREATE TABLE IF NOT EXISTS `favorite` (
     `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
     UNIQUE KEY `uk_user_target` (`user_id`, `target_id`, `target_type`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='收藏表';
+
+-- 关注表
+CREATE TABLE IF NOT EXISTS `follow` (
+    `id` BIGINT PRIMARY KEY AUTO_INCREMENT,
+    `user_id` BIGINT NOT NULL COMMENT '关注者ID',
+    `following_id` BIGINT NOT NULL COMMENT '被关注者ID',
+    `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY `uk_user_following` (`user_id`, `following_id`),
+    INDEX `idx_user_id` (`user_id`),
+    INDEX `idx_following_id` (`following_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='关注表';
 
 -- ============================================
 -- 兼容已有数据库：如果 user 表已存在但没有 role 列，执行此语句

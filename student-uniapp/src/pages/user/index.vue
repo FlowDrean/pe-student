@@ -10,9 +10,7 @@
       <!-- User Card -->
       <view v-if="userStore.isLogin" class="user-page__card card">
         <view class="user-page__card-row" @tap="goEditProfile">
-          <view class="user-page__avatar" :style="{ background: avatarColor }">
-            <text class="user-page__avatar-text">{{ firstChar }}</text>
-          </view>
+          <UserAvatar :avatar="userInfo?.avatar" :name="userStore.nickname" :user-id="userStore.userId || 0" :size="56" />
           <view class="user-page__info">
             <text class="user-page__nickname">{{ userStore.nickname }}</text>
             <text class="user-page__school">{{ userInfo?.school || '未设置学校' }} · {{ userInfo?.major || '未设置专业' }}</text>
@@ -87,18 +85,11 @@ import { onShow } from '@dcloudio/uni-app'
 import { useUserStore } from '@stores/user'
 import { userApi } from '@api/user'
 import tabbar from '@layouts/tabbar.vue'
+import UserAvatar from '@components/common/UserAvatar.vue'
 
 const userStore = useUserStore()
 
 const userInfo = computed(() => userStore.userInfo)
-
-const avatarColor = computed(() => {
-  const colors = ['#07C160', '#f97316', '#059669', '#f59e0b', '#dc2626', '#7c3aed']
-  const idx = (userStore.userId || 0) % colors.length
-  return colors[idx]
-})
-
-const firstChar = computed(() => (userStore.nickname || '?').charAt(0))
 
 async function refreshProfile() {
   if (!userStore.isLogin) return

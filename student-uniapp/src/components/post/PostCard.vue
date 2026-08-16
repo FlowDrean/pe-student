@@ -3,9 +3,7 @@
     <!-- 作者信息 -->
     <view class="post-card__header">
       <view class="post-card__user" @tap.stop="goUserProfile">
-        <view class="post-card__avatar" :style="{ background: avatarColor }">
-          <text class="post-card__avatar-text">{{ firstChar }}</text>
-        </view>
+        <UserAvatar :avatar="author?.avatar" :name="authorName" :user-id="author?.id || 0" :size="36" />
         <view class="post-card__user-info">
           <text class="post-card__nickname">{{ authorName }}</text>
           <view class="post-card__meta">
@@ -68,6 +66,7 @@
 import { computed } from 'vue'
 import { timeAgo, formatNumber } from '@utils/format'
 import ImageGrid from './ImageGrid.vue'
+import UserAvatar from '@components/common/UserAvatar.vue'
 
 interface PostAuthor {
   nickname?: string
@@ -107,13 +106,6 @@ defineEmits<{
 
 const author = computed(() => props.post.author || props.post.user)
 const authorName = computed(() => author.value?.nickname || '匿名用户')
-const firstChar = computed(() => authorName.value.charAt(0))
-
-const avatarColor = computed(() => {
-  const colors = ['#07C160', '#f97316', '#059669', '#f59e0b', '#dc2626', '#7c3aed']
-  const idx = (author.value?.id || 0) % colors.length
-  return colors[idx]
-})
 
 const categoryMap: Record<string, { label: string; color: string }> = {
   help: { label: '求助', color: '#f05a28' },

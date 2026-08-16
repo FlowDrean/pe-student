@@ -110,6 +110,11 @@ export default defineUniPages({
       style: { navigationBarTitleText: '个人主页' },
     },
     {
+      path: 'pages/user/follows',
+      type: 'page',
+      style: { navigationBarTitleText: '关注与粉丝' },
+    },
+    {
       path: 'pages/user/edit-profile',
       type: 'page',
       style: { navigationBarTitleText: '编辑资料' },

@@ -397,17 +397,13 @@ VITE_WS_URL=ws://localhost:8080/ws
 
 ### 小程序端 (student-uniapp)
 
-修改 `src/composables/useSocket.ts` 中的 `WS_URL` 常量：
+服务器地址已集中到 `src/config/index.ts` 统一管理，推荐通过环境变量配置（在项目根目录创建 `.env` 或 `.env.production`）：
 
-```ts
-const WS_URL = 'ws://your-server:8080/ws'
+```env
+VITE_SERVER_URL=https://your-server.com
 ```
 
-修改 `src/http/index.ts` 中的 `BASE_URL`：
-
-```ts
-const BASE_URL = 'https://your-server/api/v1'
-```
+API 地址（`/api/v1`）与 WebSocket 地址（`/ws`）均由该地址自动推导；不配置时默认回退 `http://localhost:8080`。注意微信小程序正式版要求 https 且需配置合法域名。
 
 ---
 

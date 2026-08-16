@@ -68,3 +68,7 @@ INSERT INTO `trade` (`id`, `user_id`, `title`, `description`, `price`, `original
 18.00, 68.00,
 '["https://picsum.photos/400/400?random=600"]',
 'daily', 2, '南区女生宿舍', '微信：cathy_fashion', 1, 62);
+
+-- 演示关注关系
+INSERT IGNORE INTO `follow` (`user_id`, `following_id`) VALUES
+(1, 2), (1, 3), (2, 1), (2, 3), (3, 1);

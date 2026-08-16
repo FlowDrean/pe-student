@@ -10,7 +10,10 @@
         <span class="post-detail__author-meta">{{ timeAgo(post.createdAt) }} · {{ formatNumber(post.views) }} 浏览</span>
       </div>
       <div class="post-detail__author-actions">
-        <button v-if="isOwner" class="btn btn-sm btn-primary" style="margin-right:8px" @click="handleDelete">删除</button>
+        <template v-if="isOwner">
+          <button class="btn btn-sm btn-primary" style="margin-right:8px" @click="goEdit">编辑</button>
+          <button class="btn btn-sm btn-primary" @click="handleDelete">删除</button>
+        </template>
         <button v-else-if="userStore.isLogin" class="btn btn-sm btn-primary" @click="goChat">私信</button>
       </div>
     </div>
@@ -51,7 +54,16 @@
     <div class="comment-section">
       <h3 class="comment-section__title">全部评论 <span class="comment-section__count">{{ post.comments }}</span></h3>
       <div v-if="comments.length" class="comment-list">
-        <CommentItem v-for="c in comments" :key="c.id" :comment="c" />
+        <CommentItem
+          v-for="c in comments"
+          :key="c.id"
+          :comment="c"
+          @reply="onReply"
+          @deleted="onCommentDeleted"
+        />
+        <button v-if="commentHasMore" class="comment-more" @click="loadMoreComments">
+          {{ commentsLoading ? '加载中...' : '加载更多评论' }}
+        </button>
       </div>
       <EmptyState v-else title="暂无评论" description="快来抢沙发吧" :show-action="false" />
     </div>
@@ -61,10 +73,21 @@
 
   <!-- 底部评论输入 -->
   <div class="comment-bar">
-    <input v-model="commentText" class="comment-bar__input" placeholder="说点什么..." @keyup.enter="submitComment" />
-    <button class="comment-bar__send" :disabled="!commentText.trim()" @click="submitComment">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" :stroke="commentText.trim() ? 'var(--accent-600)' : 'var(--ink-300)'" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-    </button>
+    <div v-if="replyTarget" class="comment-bar__reply">
+      <span class="comment-bar__reply-text">回复 @{{ replyTarget.replyToName }}：</span>
+      <button class="comment-bar__reply-cancel" @click="cancelReply">✕</button>
+    </div>
+    <div class="comment-bar__row">
+      <input
+        v-model="commentText"
+        class="comment-bar__input"
+        :placeholder="replyTarget ? `回复 @${replyTarget.replyToName}` : '说点什么...'"
+        @keyup.enter="submitComment"
+      />
+      <button class="comment-bar__send" :disabled="!commentText.trim()" @click="submitComment">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" :stroke="commentText.trim() ? 'var(--accent-600)' : 'var(--ink-300)'" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+      </button>
+    </div>
   </div>
 </template>
 
@@ -88,6 +111,12 @@ const post = ref(null)
 const comments = ref([])
 const commentText = ref('')
 const loading = ref(true)
+const commentPage = ref(1)
+const commentHasMore = ref(false)
+const commentsLoading = ref(false)
+const replyTarget = ref(null)
+
+const COMMENT_PAGE_SIZE = 20
 
 const categoryLabel = computed(() => {
   const cat = POST_CATEGORIES.find((c) => c.key === post.value?.category)
@@ -141,22 +170,72 @@ async function handleFavorite() {
   } catch { /* ignore */ }
 }
 
+/** 点击"回复"：记录回复目标（一级评论或楼中楼中的某条回复） */
+function onReply(comment, rootComment) {
+  if (!userStore.isLogin) return router.push('/auth/login')
+  replyTarget.value = {
+    parentId: comment.id,
+    replyToUserId: comment.user?.id,
+    replyToName: comment.user?.nickname || '匿名',
+    // 回复的是楼中楼里的回复时，新回复要挂到它所属的一级评论下
+    root: rootComment || null,
+  }
+}
+
+function cancelReply() {
+  replyTarget.value = null
+}
+
 async function submitComment() {
   if (!commentText.value.trim()) return
+  const target = replyTarget.value
   try {
-    const result = await createComment(post.value.id, { content: commentText.value })
-    comments.value.unshift({
+    const result = await createComment(post.value.id, {
+      content: commentText.value,
+      parentId: target?.parentId,
+      replyToUserId: target?.replyToUserId,
+    })
+    const newComment = {
       id: result.comment?.id || Date.now(),
       content: commentText.value,
       likes: 0,
-      user: result.user || { id: 999, nickname: '我', avatar: '' },
+      isLiked: false,
+      user: result.user || { id: userStore.userId, nickname: '我', avatar: '' },
       createdAt: new Date().toISOString(),
-    })
+      replies: [],
+    }
+    if (target && target.root) {
+      // 楼中楼回复
+      const root = comments.value.find((c) => c.id === target.root.id)
+      if (root) {
+        root.replies = [...(root.replies || []), { ...newComment, replyToName: result.replyToName || target.replyToName }]
+      }
+    } else if (target) {
+      // 回复一级评论
+      const root = comments.value.find((c) => c.id === target.parentId)
+      if (root) {
+        root.replies = [...(root.replies || []), { ...newComment, replyToName: result.replyToName || target.replyToName }]
+      }
+    } else {
+      comments.value.unshift(newComment)
+    }
     post.value.comments++
     commentText.value = ''
+    replyTarget.value = null
   } catch {
     showToast('评论失败，请重试')
   }
+}
+
+/** 评论删除后同步列表与计数 */
+function onCommentDeleted({ item, parent }) {
+  if (parent) {
+    const root = comments.value.find((c) => c.id === parent.id)
+    if (root) root.replies = (root.replies || []).filter((r) => r.id !== item.id)
+  } else {
+    comments.value = comments.value.filter((c) => c.id !== item.id)
+  }
+  if (post.value?.comments > 0) post.value.comments--
 }
 
 function goUserProfile() {
@@ -167,6 +246,11 @@ function goUserProfile() {
 function goChat() {
   if (!post.value?.user?.id) return
   router.push(`/chat/${post.value.user.id}`)
+}
+
+function goEdit() {
+  if (!post.value) return
+  router.push(`/post/${post.value.id}/edit`)
 }
 
 function previewImage(index) {
@@ -184,12 +268,21 @@ async function fetchPostDetail() {
   }
 }
 
-async function fetchComments() {
+async function fetchComments(append = false) {
   const id = route.params.id
+  commentsLoading.value = true
   try {
-    const data = await getComments(id, { page: 1, size: 20 })
-    comments.value = data.list || []
+    const data = await getComments(id, { page: commentPage.value, size: COMMENT_PAGE_SIZE })
+    const list = data.list || []
+    comments.value = append ? [...comments.value, ...list] : list
+    commentHasMore.value = data.pages ? commentPage.value < data.pages : false
   } catch { /* ignore */ }
+  finally { commentsLoading.value = false }
+}
+
+function loadMoreComments() {
+  commentPage.value++
+  fetchComments(true)
 }
 
 onMounted(async () => {
@@ -366,6 +459,21 @@ onMounted(async () => {
   gap: var(--space-3);
 }
 
+.comment-more {
+  align-self: center;
+  padding: 6px 20px;
+  margin-top: var(--space-2);
+  border: 2px solid var(--ink-100);
+  border-radius: var(--radius-full);
+  background: var(--bg-primary);
+  font-size: var(--text-xs);
+  color: var(--ink-500);
+}
+
+.comment-more:active {
+  background: var(--ink-50);
+}
+
 /* ── 底部输入栏 ── */
 .comment-bar {
   position: fixed;
@@ -373,13 +481,40 @@ onMounted(async () => {
   left: 0;
   right: 0;
   display: flex;
-  align-items: center;
-  gap: var(--space-3);
+  flex-direction: column;
+  gap: var(--space-2);
   padding: var(--space-3) var(--content-padding);
   padding-bottom: calc(var(--space-3) + env(safe-area-inset-bottom));
   background: var(--bg-primary);
   border-top: 2px solid var(--ink-100);
   z-index: 100;
+}
+
+.comment-bar__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.comment-bar__reply {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 10px;
+  background: var(--accent-50);
+  border-radius: var(--radius-sm);
+}
+
+.comment-bar__reply-text {
+  font-size: var(--text-xs);
+  color: var(--accent-700, var(--accent-600));
+  font-weight: var(--font-medium);
+}
+
+.comment-bar__reply-cancel {
+  padding: 2px 6px;
+  font-size: var(--text-xs);
+  color: var(--ink-400);
 }
 
 .comment-bar__input {

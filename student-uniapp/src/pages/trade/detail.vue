@@ -65,9 +65,7 @@
       <!-- Seller Info -->
       <view class="trade-detail__seller card">
         <view class="trade-detail__seller-info" @tap="goProfile">
-          <view class="trade-detail__seller-avatar" :style="{ background: avatarColor }">
-            <text class="trade-detail__seller-avatar-text">{{ firstChar }}</text>
-          </view>
+          <UserAvatar :avatar="detail.user?.avatar" :name="detail.user?.nickname" :user-id="detail.userId" :size="44" />
           <view class="trade-detail__seller-detail">
             <text class="trade-detail__seller-name">{{ detail.user?.nickname || '卖家' }}</text>
             <text class="trade-detail__seller-time" v-if="detail.createdAt">{{ timeAgo(detail.createdAt) }}发布</text>
@@ -124,6 +122,7 @@ import { CONDITIONS, TRADE_STATUS_LABELS } from '@utils/constants'
 import PriceTag from '@components/trade/PriceTag.vue'
 import Loading from '@components/common/Loading.vue'
 import ErrorState from '@components/common/ErrorState.vue'
+import UserAvatar from '@components/common/UserAvatar.vue'
 
 const userStore = useUserStore()
 
@@ -159,14 +158,6 @@ const conditionLabel = computed(() => {
 // ---- Owner check ----
 const isOwner = computed(() => {
   return userStore.userId && detail.value?.userId === userStore.userId
-})
-
-// ---- Avatar ----
-const firstChar = computed(() => (detail.value?.user?.nickname || '卖').charAt(0))
-const avatarColor = computed(() => {
-  const colors = ['#07C160', '#f97316', '#059669', '#f59e0b', '#dc2626', '#7c3aed']
-  const idx = (detail.value?.userId || 0) % colors.length
-  return colors[idx]
 })
 
 // ---- Fetch ----

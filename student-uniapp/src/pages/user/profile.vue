@@ -9,13 +9,30 @@
       <template v-else-if="profile">
         <!-- User Card -->
         <view class="profile-page__card card">
-          <view class="profile-page__avatar" :style="{ background: avatarColor }">
-            <text class="profile-page__avatar-text">{{ firstChar }}</text>
-          </view>
+          <UserAvatar :avatar="profile.avatar" :name="profile.nickname || profile.username" :user-id="userId" :size="80" />
           <text class="profile-page__nickname">{{ profile.nickname || profile.username || '用户' }}</text>
           <text v-if="profile.school" class="profile-page__school">{{ profile.school }}{{ profile.major ? ' · ' + profile.major : '' }}</text>
           <text v-if="profile.bio" class="profile-page__bio">{{ profile.bio }}</text>
-          <view class="profile-page__actions">
+          <!-- 数据统计 -->
+          <view class="profile-page__stats">
+            <view class="profile-page__stat">
+              <text class="profile-page__stat-num">{{ profile.postCount ?? 0 }}</text>
+              <text class="profile-page__stat-label">帖子</text>
+            </view>
+            <view class="profile-page__stat profile-page__stat--link" @tap="goFollows('following')">
+              <text class="profile-page__stat-num">{{ profile.followCount ?? 0 }}</text>
+              <text class="profile-page__stat-label">关注</text>
+            </view>
+            <view class="profile-page__stat profile-page__stat--link" @tap="goFollows('fans')">
+              <text class="profile-page__stat-num">{{ profile.fansCount ?? 0 }}</text>
+              <text class="profile-page__stat-label">粉丝</text>
+            </view>
+            <view class="profile-page__stat">
+              <text class="profile-page__stat-num">{{ profile.likedCount ?? 0 }}</text>
+              <text class="profile-page__stat-label">获赞</text>
+            </view>
+          </view>
+          <view v-if="!isSelf" class="profile-page__actions">
             <view
               class="profile-page__follow-btn"
               :class="{ 'profile-page__follow-btn--following': isFollowing }"
@@ -102,6 +119,7 @@ import { onLoad } from '@dcloudio/uni-app'
 import { userApi } from '@api/user'
 import { useUserStore } from '@stores/user'
 import PostCard from '@components/post/PostCard.vue'
+import UserAvatar from '@components/common/UserAvatar.vue'
 
 const userStore = useUserStore()
 
@@ -115,19 +133,11 @@ const trades = ref<any[]>([])
 const postsLoading = ref(false)
 const tradesLoading = ref(false)
 
-const avatarColor = computed(() => {
-  const colors = ['#07C160', '#f97316', '#059669', '#f59e0b', '#dc2626', '#7c3aed']
-  const idx = (userId.value || 0) % colors.length
-  return colors[idx]
-})
-
-const firstChar = computed(() => {
-  const name = profile.value?.nickname || profile.value?.username || '用'
-  return name.charAt(0)
-})
+const isSelf = computed(() => userStore.isLogin && userId.value === userStore.userId)
 
 onLoad((options: any) => {
-  userId.value = Number(options.userId) || 0
+  // 兼容两种参数名：帖子/商品详情跳转传 id，通知中心传 userId
+  userId.value = Number(options.userId || options.id) || 0
   fetchProfile()
   fetchPosts()
 })
@@ -136,7 +146,7 @@ async function fetchProfile() {
   try {
     const data = await userApi.getUserById(userId.value)
     profile.value = data
-    isFollowing.value = data?.isFollowing || data?.followed || false
+    isFollowing.value = !!data?.isFollowed
   } catch {
     profile.value = null
   } finally {
@@ -224,6 +234,10 @@ function goPostDetail(id: number) {
 function goTradeDetail(id: number) {
   uni.navigateTo({ url: `/pages/trade/detail?id=${id}` })
 }
+
+function goFollows(type: 'following' | 'fans') {
+  uni.navigateTo({ url: `/pages/user/follows?id=${userId.value}&type=${type}` })
+}
 </script>
 
 <style scoped>
@@ -296,9 +310,40 @@ function goTradeDetail(id: number) {
 .profile-page__bio {
   font-size: 14px;
   color: var(--ink-500);
-  margin-bottom: 16px;
+  margin-bottom: 12px;
   line-height: 1.6;
   max-width: 280px;
+}
+
+/* ── 数据统计 ── */
+.profile-page__stats {
+  display: flex;
+  justify-content: center;
+  gap: 32px;
+  margin-bottom: 16px;
+}
+
+.profile-page__stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.profile-page__stat-num {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--ink-900);
+  font-family: var(--font-mono);
+}
+
+.profile-page__stat-label {
+  font-size: 11px;
+  color: var(--ink-400);
+}
+
+.profile-page__stat--link:active {
+  opacity: 0.6;
 }
 
 .profile-page__actions {
